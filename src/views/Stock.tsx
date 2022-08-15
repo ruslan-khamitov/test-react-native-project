@@ -1,6 +1,19 @@
 import {observer} from 'mobx-react-lite';
 import React, {useEffect, useState} from 'react';
-import {FlatList, StyleSheet, View} from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import {ROW_HEIGHT} from '../components/ticker-table/constants';
 import TableHeader from '../components/ticker-table/TableHeader';
 import TableRow from '../components/ticker-table/TableRow';
@@ -9,6 +22,23 @@ import TickerStore from '../store/ticker-store';
 
 function renderTableRow({item}: {item: HandledTicker}) {
   return <TableRow item={item} />;
+}
+
+function useAnimatedLoadingIndicator(isLoading: boolean) {
+  const isLoadingAnimated = useSharedValue(isLoading ? 1 : 0);
+  useEffect(() => {
+    isLoadingAnimated.value = withTiming(isLoading ? 1 : 0, {
+      duration: 200,
+      easing: Easing.inOut(Easing.ease),
+    });
+  }, [isLoading, isLoadingAnimated]);
+  const loadingIndicatorAnimatedStyle = useAnimatedStyle(() => {
+    const height = interpolate(isLoadingAnimated.value, [0, 1], [0, 50]);
+    const bottom = interpolate(isLoadingAnimated.value, [0, 1], [0, 10]);
+    return {height, bottom};
+  }, [isLoadingAnimated]);
+
+  return loadingIndicatorAnimatedStyle;
 }
 
 function Stock() {
@@ -21,6 +51,9 @@ function Stock() {
   }, [store]);
 
   const data = store.tickersArray;
+  const isLoading = store.isLoading;
+
+  const loadingIndicatorAnimatedStyle = useAnimatedLoadingIndicator(isLoading);
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -29,8 +62,6 @@ function Stock() {
         data={data}
         renderItem={renderTableRow}
         keyExtractor={item => `${item.id}`}
-        refreshing={store.isLoading}
-        onRefresh={() => store.fetch()}
         stickyHeaderIndices={[0]}
         getItemLayout={(_, index) => ({
           length: ROW_HEIGHT,
@@ -38,8 +69,46 @@ function Stock() {
           index,
         })}
       />
+      <Animated.View
+        style={[
+          styles.loadingIndicator,
+          styles.loadingIndicatorShadow,
+          loadingIndicatorAnimatedStyle,
+        ]}>
+        {isLoading ? (
+          <>
+            <Text>Обновление</Text>
+            <ActivityIndicator />
+          </>
+        ) : null}
+      </Animated.View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingIndicator: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    flex: 1,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  loadingIndicatorShadow: {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+
+    elevation: 5,
+  },
+});
 
 export default observer(Stock);

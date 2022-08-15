@@ -9,7 +9,7 @@ interface TableHeaderProps {
 }
 
 function TableHeader({store}: TableHeaderProps) {
-  const isError = store?.isError ?? false;
+  const isError = store?.isError;
 
   const {width: windowWidth} = useWindowDimensions();
   const widthStyle = {width: (windowWidth - 20) / 4};
